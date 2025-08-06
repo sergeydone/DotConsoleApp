@@ -1,0 +1,42 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build .NET Framework 4.0",
+            "type": "shell",
+            "command": "c:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\MSBuild.exe",
+            "args": [
+                "${workspaceFolder}/PingServiceApp.csproj",
+                "/p:Configuration=Debug",
+                "/p:Platform=AnyCPU",
+                "/t:Rebuild",
+                "/verbosity:minimal",
+                "/nologo"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": false,
+                "echo": true,
+                "clear": true
+            }
+        },
+        {
+            "label": "Run .NET Framework 4.0 App",
+            "type": "shell",
+            "command": "${workspaceFolder}/bin/Debug/PingServiceApp.exe",
+            "dependsOn": ["Build .NET Framework 4.0"],
+            "group": "test",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            }
+        }
+    ]
+}

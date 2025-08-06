@@ -1,0 +1,7 @@
+DotConsoleApp/bin/
+bin/
+/bin/
+DotConsoleApp/obj/
+obj/
+/obj/
+.vs/
