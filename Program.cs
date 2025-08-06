@@ -14,6 +14,9 @@ using System.Runtime.InteropServices;
 using System.Management.Automation;
 using System.Linq;
 using System.Diagnostics;
+using System.Windows.Forms;
+using System.Drawing;
+
 
 namespace PingServiceApp
 {
@@ -380,10 +383,10 @@ namespace PingServiceApp
                             if (TimeSpan.TryParse(startTimeNode.InnerText.Trim(), out startTime))
                                 target.StartTime = startTime;
                             else
-                                target.StartTime = new TimeSpan(17, 0, 0); // default 17:00
+                                target.StartTime = new TimeSpan(17, 0, 0); // default 
                         }
                         else
-                            target.StartTime = new TimeSpan(17, 0, 0); // default 17:00
+                            target.StartTime = new TimeSpan(17, 0, 0); // default 
 
                         var ageNode = node.SelectSingleNode("FilesAgeDaysBeforeArchive");
                         if (ageNode != null)
@@ -447,12 +450,7 @@ namespace PingServiceApp
                     foreach (XmlNode node in rebootNodes)
                     {
                         var target = new RebootTarget();
-                        /*
-                        var isServiceNode = node.SelectSingleNode("IsService");
-                        bool s;
-                        if (isServiceNode != null)
-                            target.IsService = bool.TryParse(isServiceNode.InnerText, out s) && s;
-                        */
+
                         var isServiceNode = node.SelectSingleNode("IsService");
                         if (isServiceNode != null)
                         {
@@ -465,9 +463,6 @@ namespace PingServiceApp
                         else
                             target.IsService = false; // default
 
-
-
-
                         var serviceName = node.SelectSingleNode("ServiceName");
                         if (serviceName != null && !string.IsNullOrEmpty(serviceName.InnerText.Trim()))
                             target.ServiceName = serviceName.InnerText.Trim();
@@ -479,7 +474,6 @@ namespace PingServiceApp
                         var appPath = node.SelectSingleNode("AppPath");
                         if (appPath != null && !string.IsNullOrEmpty(appPath.InnerText.Trim()))
                             target.AppPath = appPath.InnerText.Trim();
-
 
                         var startTime = node.SelectSingleNode("StartTime");
                         TimeSpan time;
@@ -501,8 +495,6 @@ namespace PingServiceApp
                         config.RebootTargets.Add(target);
                     }
                 }
-
-
             }
             catch (Exception ex)
             {
@@ -532,28 +524,19 @@ namespace PingServiceApp
 
         private bool stopRequested = false;
         private string logDirectory = @"C:\Logs";
+        private readonly object rebootLock = new object();
 
         public void StartMonitoring()
         {
-
             string exePath = AppDomain.CurrentDomain.BaseDirectory;
             string configPath = Path.Combine(exePath, "PingService.config.xml");
             config = ServiceConfig.Load(configPath);
 
-
-            // Start ping timers (same as your OnStart)
+            // Start ping timers 
             foreach (var target in config.PingTargets)
             {
                 if (target.IsActive)
                 {
-                    /*var timer = new System.Threading.Timer(
-                        new TimerCallback(DoPing),
-                        target,
-                        0,
-                        target.PingTimerSec * 1000
-                    );
-                    pingTimers.Add(timer);
-                }*/
                     var timer = new System.Threading.Timer(
                         state => DoPing(state),
                         target,
@@ -563,12 +546,11 @@ namespace PingServiceApp
                 }
             }
 
-            // Start TCP threads (same as your OnStart)
+            // Start TCP threads 
             foreach (var target in config.TcpTargets)
             {
                 if (target.IsActive)
                 {
-                    // var thread = new Thread(new ParameterizedThreadStart(CheckTcpLoop));
                     var thread = new Thread(state => CheckTcpLoop(state));
                     thread.IsBackground = true;
                     thread.Start(target);
@@ -576,12 +558,11 @@ namespace PingServiceApp
                 }
             }
 
-            // Start Alive threads (same as your OnStart)
+            // Start Alive threads 
             foreach (var target in config.AliveTargets)
             {
                 if (target.IsActive)
                 {
-                    // var thread = new Thread(new ParameterizedThreadStart(LogAliveStatus));
                     var thread = new Thread(state => LogAliveStatus(state));
                     thread.IsBackground = true;
                     thread.Start(target);
@@ -589,12 +570,11 @@ namespace PingServiceApp
                 }
             }
 
-            // Start disk threads (same as your OnStart)
+            // Start disk threads 
             foreach (var target in config.DiskTargets)
             {
                 if (target.IsActive)
                 {
-                    //var thread = new Thread(new ParameterizedThreadStart(LogDiskStatus));
                     var thread = new Thread(state => LogDiskStatus(state));
                     thread.IsBackground = true;
                     thread.Start(target);
@@ -602,12 +582,11 @@ namespace PingServiceApp
                 }
             }
 
-            // Start CPU threads (same as your OnStart)
+            // Start CPU threads 
             foreach (var target in config.CpuTargets)
             {
                 if (target.IsActive)
                 {
-                    // var thread = new Thread(new ParameterizedThreadStart(LogCpuStatus));
                     var thread = new Thread(state => LogCpuStatus(state));
                     thread.IsBackground = true;
                     thread.Start(target);
@@ -615,12 +594,11 @@ namespace PingServiceApp
                 }
             }
 
-            // Start RAM threads (same as your OnStart)
+            // Start RAM threads 
             foreach (var target in config.RamTargets)
             {
                 if (target.IsActive)
                 {
-                    // var thread = new Thread(new ParameterizedThreadStart(LogRamStatus));
                     var thread = new Thread(state => LogRamStatus(state));
                     thread.IsBackground = true;
                     thread.Start(target);
@@ -628,21 +606,19 @@ namespace PingServiceApp
                 }
             }
 
-            // Start Archive thread (same as your OnStart)
+            // Start Archive thread
             if (config.ArchiveTargets.Count > 0)
             {
                 archiveThread = new Thread(new ThreadStart(ArchiveLoop));
-                //archiveThread = new Thread(state => ArchiveLoop(state));
                 archiveThread.IsBackground = true;
                 archiveThread.Start();
             }
 
-            // Start Reboot thread (same as your OnStart)
+            // Start Reboot thread 
             foreach (var target in config.RebootTargets)
             {
                 if (target.IsActive)
                 {
-                    //var thread = new Thread(new ParameterizedThreadStart(CheckRebootTime));
                     var thread = new Thread(state => CheckRebootTime(state));
                     thread.IsBackground = true;
                     thread.Start(target);
@@ -655,7 +631,7 @@ namespace PingServiceApp
         {
             stopRequested = true;
 
-            // Dispose ping timers (same as your OnStop)
+            // Dispose ping timers
             foreach (var timer in pingTimers)
             {
                 if (timer != null)
@@ -663,7 +639,7 @@ namespace PingServiceApp
             }
             pingTimers.Clear();
 
-            // Stop all threads (same as your OnStop)
+            // Stop all threads
             StopThreads(tcpThreads);
             StopThreads(aliveThreads);
             StopThreads(diskThreads);
@@ -913,62 +889,62 @@ namespace PingServiceApp
             var target = (RebootTarget)state;
             DateTime lastClearDate = DateTime.MinValue;
 
-
             while (!stopRequested)
             {
                 var now = DateTime.Now;
 
-                // Clear the HashSet once per day
-                if (lastClearDate.Date < now.Date)
+                lock (rebootLock)
                 {
-                    alreadyRebootedToday.Clear();
-                    lastClearDate = now;
-                }
-
-
-                if (now.TimeOfDay >= target.StartTime && now.TimeOfDay < target.StartTime.Add(TimeSpan.FromMinutes(1)))
-                {
-                    string key = string.Format("{0}{1}{2}", target.ServiceName, target.ProcessName, now.Date);
-
-                    if (!alreadyRebootedToday.Contains(key))
+                    // Clear HashSet every day
+                    if (lastClearDate.Date < now.Date)
                     {
-                        alreadyRebootedToday.Add(key);
+                        alreadyRebootedToday.Clear();
+                        lastClearDate = now;
+                    }
 
-                        try
-                        {
-                            if (target.IsService && !string.IsNullOrEmpty(target.ServiceName))
-                            {
-                                var sc = new ServiceController(target.ServiceName);
-                                if (sc.Status != ServiceControllerStatus.Stopped)
-                                {
-                                    sc.Stop();
-                                    sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
-                                }
+                    if (now.TimeOfDay >= target.StartTime && now.TimeOfDay < target.StartTime.Add(TimeSpan.FromMinutes(1)))
+                    {
+                        string key = string.Format("{0}{1}{2}", target.ServiceName, target.ProcessName, now.Date);
 
-                                sc.Start();
-                                sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
-                                Log(string.Format("{0}: Rebooted service {1}", DateTime.Now, target.ServiceName));
-                            }
-                            else if (!string.IsNullOrEmpty(target.ProcessName))
-                            {
-                                foreach (var proc in Process.GetProcessesByName(target.ProcessName))
-                                {
-                                    proc.Kill();
-                                }
-                                if (!string.IsNullOrEmpty(target.AppPath) && File.Exists(target.AppPath))
-                                {
-                                    Process.Start(target.AppPath);
-                                    Log(string.Format("{0}: Rebooted application {1} from {2}", DateTime.Now, target.ProcessName, target.AppPath));
-                                }
-                            }
-                        }
-                        catch (Exception ex)
+                        if (!alreadyRebootedToday.Contains(key))
                         {
-                            Log(string.Format("{0}: Error rebooting target - {1}", DateTime.Now, ex.Message));
+                            alreadyRebootedToday.Add(key);
+
+                            try
+                            {
+                                if (target.IsService && !string.IsNullOrEmpty(target.ServiceName))
+                                {
+                                    var sc = new ServiceController(target.ServiceName);
+                                    if (sc.Status != ServiceControllerStatus.Stopped)
+                                    {
+                                        sc.Stop();
+                                        sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+                                    }
+
+                                    sc.Start();
+                                    sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
+                                    Log(string.Format("{0}: Rebooted service {1}", DateTime.Now, target.ServiceName));
+                                }
+                                else if (!string.IsNullOrEmpty(target.ProcessName))
+                                {
+                                    foreach (var proc in Process.GetProcessesByName(target.ProcessName))
+                                    {
+                                        proc.Kill();
+                                    }
+                                    if (!string.IsNullOrEmpty(target.AppPath) && File.Exists(target.AppPath))
+                                    {
+                                        Process.Start(target.AppPath);
+                                        Log(string.Format("{0}: Rebooted application {1} from {2}", DateTime.Now, target.ProcessName, target.AppPath));
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Log(string.Format("{0}: Error rebooting target - {1}", DateTime.Now, ex.Message));
+                            }
                         }
                     }
                 }
-
                 Thread.Sleep(30000); // Check every 30 seconds
             }
         }
@@ -978,7 +954,7 @@ namespace PingServiceApp
         {
             try
             {
-                Console.WriteLine(message);   // // //
+                Console.WriteLine(message);
 
                 string fileName = string.Format("{0}_{1}_{2}.txt",
                     Environment.MachineName,
@@ -1137,8 +1113,8 @@ namespace PingServiceApp
             try
             {
                 var cutoffDate = DateTime.Now.AddDays(-maxAgeDays);
-                var archiveFolders = Directory.GetDirectories(archivePath, "Archive_*");
-                var archiveFiles = Directory.GetFiles(archivePath, "Archive_*.zip");
+                var archiveFolders = Directory.GetDirectories(archivePath, "*");
+                var archiveFiles = Directory.GetFiles(archivePath, "*.zip");
 
                 int deletedCount = 0;
 
@@ -1190,37 +1166,141 @@ namespace PingServiceApp
         }
     }
 
+
     class Program
     {
+        private static NotifyIcon trayIcon;
+        private static IntPtr consoleHandle;
+        private static bool consoleVisible = false;
+        private static ManualResetEvent shutdownEvent = new ManualResetEvent(false);
+        private static PingService service;
 
+        // Import Windows API 
+        [DllImport("kernel32.dll")]
+        static extern IntPtr GetConsoleWindow();
 
+        [DllImport("user32.dll")]
+        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        const int SW_HIDE = 0;
+        const int SW_SHOW = 5;
+
+        [STAThread]
         static void Main(string[] args)
         {
+            Console.CancelKeyPress += new ConsoleCancelEventHandler(Console_CancelKeyPress);
+            AppDomain.CurrentDomain.ProcessExit += new EventHandler(CurrentDomain_ProcessExit);
+
+            consoleHandle = GetConsoleWindow();
+            InitializeTrayIcon();
+            ToggleConsoleVisibility(false);
+
+            Console.WriteLine("Starting PingService Console Application...");
+
             try
             {
-                Console.WriteLine("Starting PingService Console Application...");
-                Console.WriteLine("Press Q to quit...");
-
-                using (var service = new PingService())
-                {
-                    service.StartMonitoring();
-
-                    while (Console.ReadKey(true).Key != ConsoleKey.Q)
-                    {
-                        Thread.Sleep(100);
-                    }
-
-                    service.StopMonitoring();
-                }
-                Console.WriteLine("Service stopped. Press any key to exit...");
-                Console.ReadKey();
+                service = new PingService();
+                service.StartMonitoring();
+                Application.Run();
             }
             catch (Exception ex)
             {
                 Console.WriteLine(string.Format("Fatal error: {0}", ex.Message));
                 Console.ReadKey();
             }
-
+            finally
+            {
+                Cleanup();
+            }
         }
+
+        private static void Cleanup()
+        {
+            // Signal all to shutdown
+            shutdownEvent.Set();
+
+            // Cleanup service if active
+            if (service != null)
+            {
+                service.StopMonitoring();
+                service.Dispose();
+                service = null;
+            }
+
+            // Cleanup icon
+            if (trayIcon != null)
+            {
+                trayIcon.Visible = false;
+                trayIcon.Dispose();
+                trayIcon = null;
+            }
+
+            // Forcibly terminate if needed  
+            if (!shutdownEvent.WaitOne(5000)) // 5 second timeout
+            {
+                Environment.Exit(-1); //  shutdown
+            }
+        }
+
+        private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
+        {
+            Cleanup();
+        }
+
+        private static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
+        {
+            e.Cancel = true; // Prevent immediate termination
+            Application.Exit();
+        }
+
+        private static void InitializeTrayIcon()
+        {
+            trayIcon = new NotifyIcon();
+            trayIcon.Icon = LoadCustomIcon();
+            trayIcon.Text = "PingService (Click here)";
+            trayIcon.Visible = true;
+
+            trayIcon.Click += new EventHandler(TrayIcon_Click);
+
+            ContextMenu menu = new ContextMenu();
+            menu.MenuItems.Add("Toggle Console", new EventHandler(Menu_ToggleConsole));
+            menu.MenuItems.Add("Exit", new EventHandler(Menu_Exit));
+            trayIcon.ContextMenu = menu;
+        }
+
+        private static void TrayIcon_Click(object sender, EventArgs e)
+        {
+            ToggleConsoleVisibility(!consoleVisible);
+        }
+
+        private static void Menu_ToggleConsole(object sender, EventArgs e)
+        {
+            ToggleConsoleVisibility(!consoleVisible);
+        }
+
+        private static void Menu_Exit(object sender, EventArgs e)
+        {
+            Application.Exit();
+        }
+
+        private static Icon LoadCustomIcon()
+        {
+            try
+            {
+                return new Icon("icon.ico");
+            }
+            catch
+            {
+                return SystemIcons.Application;
+            }
+        }
+
+        private static void ToggleConsoleVisibility(bool show)
+        {
+            consoleVisible = show;
+            ShowWindow(consoleHandle, show ? SW_SHOW : SW_HIDE);
+            trayIcon.Text = "PingService - Console " + (show ? "Visible" : "Hidden");
+        }
+
     }
 }

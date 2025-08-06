@@ -45,12 +45,19 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Management" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
   </ItemGroup>
   <ItemGroup>
   <None Include="icon.ico" />
+</ItemGroup>
+<ItemGroup>
+  <Content Include="icon.ico">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </Content>
 </ItemGroup>
   <ItemGroup>
   <Reference Include="System.Management.Automation">
